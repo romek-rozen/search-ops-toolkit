@@ -6,7 +6,7 @@ services:
     image: postgres:16
     restart: unless-stopped
     environment:
-      POSTGRES_DB: gmaps_reviews
+      POSTGRES_DB: search_ops
       POSTGRES_USER: postgres
       POSTGRES_PASSWORD: ${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}
       PGPORT: ${DB_PORT:-5432}
@@ -27,7 +27,7 @@ services:
       - "${APP_PORT:-3000}:${APP_PORT:-3000}"
     environment:
       PORT: ${APP_PORT:-3000}
-      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:${DB_PORT:-5432}/gmaps_reviews
+      DATABASE_URL: postgresql://postgres:${POSTGRES_PASSWORD:?Set POSTGRES_PASSWORD in .env}@db:${DB_PORT:-5432}/search_ops
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       NEXT_PUBLIC_ADMIN_EMAIL: ${NEXT_PUBLIC_ADMIN_EMAIL:-}

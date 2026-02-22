@@ -88,7 +88,7 @@ npm install
 docker-compose up -d db          # PostgreSQL only
 cp .env.example .env
 # Edit .env — for local dev, DATABASE_URL should point to localhost:
-#   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/gmaps_reviews?schema=public"
+#   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/search_ops?schema=public"
 npx prisma migrate dev
 npm run dev                       # http://localhost:3000
 ```

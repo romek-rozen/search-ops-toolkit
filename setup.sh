@@ -27,7 +27,7 @@ else
   read -rp "Admin email (optional, grants admin access — leave empty to skip): " ADMIN_EMAIL
 
   cat > .env <<EOF
-DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@db:5471/gmaps_reviews?schema=public"
+DATABASE_URL="postgresql://postgres:${POSTGRES_PASSWORD}@db:5471/search_ops?schema=public"
 POSTGRES_PASSWORD="${POSTGRES_PASSWORD}"
 SESSION_SECRET="${SESSION_SECRET}"
 ADMIN_EMAIL="${ADMIN_EMAIL}"
