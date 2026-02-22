@@ -137,4 +137,4 @@ Caddy runs in Docker (`docker-caddy-1`) and handles SSL automatically.
 
 ## License
 
-[MIT](LICENSE)
+[AGPL-3.0](LICENSE)
