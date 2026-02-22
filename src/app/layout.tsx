@@ -12,6 +12,7 @@ const inter = Inter({
 export const metadata: Metadata = {
   title: "Search Ops Toolkit",
   description: "Pobieranie i eksport opinii z wizytówek Google Maps",
+  robots: { index: false, follow: false },
 };
 
 export default function RootLayout({

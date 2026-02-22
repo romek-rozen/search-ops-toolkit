@@ -20,13 +20,14 @@ export async function POST(req: NextRequest) {
     const { taskId, type } = parsed.data;
     console.log(`[tasks/retry] type=${type} taskId=${taskId}`);
 
+    // Force mode: bypass grace period, try task_get immediately
     let result;
     if (type === "review") {
-      result = await retryReviewTask(taskId, credentials);
+      result = await retryReviewTask(taskId, credentials, undefined, true);
     } else if (type === "search") {
-      result = await retrySearchTask(taskId, credentials);
+      result = await retrySearchTask(taskId, credentials, undefined, true);
     } else {
-      result = await retryInfoTask(taskId, credentials);
+      result = await retryInfoTask(taskId, credentials, undefined, true);
     }
 
     console.log(`[tasks/retry] type=${type} taskId=${taskId} → ${result.taskStatus}${result.error ? ` error=${result.error}` : ""}`);

@@ -48,12 +48,8 @@ export async function POST() {
     // Log what DFS API says is ready
     console.log(`[tasks/retry-all] DFS ready: reviews=${JSON.stringify(readyReviewIds)}, search=${JSON.stringify(readySearchItems.map(r => r.id))}, info=${JSON.stringify(readyInfoIds)}`);
 
-    // Process only tasks that are ready (skip DFS call for not-ready ones)
+    // Process all pending tasks — let retry functions decide based on ready list + task age
     for (const task of pendingReviews) {
-      if (!readyReviewIds.includes(task.dfsTaskId)) {
-        results.pending++;
-        continue;
-      }
       try {
         const res = await retryReviewTask(task.id, credentials, readyReviewIds);
         if (res.taskStatus === "completed") results.completed++;
@@ -65,11 +61,6 @@ export async function POST() {
     }
 
     for (const task of pendingSearch) {
-      const isReady = readySearchItems.some((r) => r.id === task.dfsTaskId);
-      if (!isReady) {
-        results.pending++;
-        continue;
-      }
       try {
         const res = await retrySearchTask(task.id, credentials, readySearchItems.map(r => r.id));
         if (res.taskStatus === "completed") results.completed++;
@@ -81,10 +72,6 @@ export async function POST() {
     }
 
     for (const task of pendingInfo) {
-      if (!readyInfoIds.includes(task.dfsTaskId)) {
-        results.pending++;
-        continue;
-      }
       try {
         const res = await retryInfoTask(task.id, credentials, readyInfoIds);
         if (res.taskStatus === "completed") results.completed++;

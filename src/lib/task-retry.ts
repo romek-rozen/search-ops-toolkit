@@ -33,7 +33,7 @@ function taskAgeMs(createdAt: Date): number {
   return Date.now() - createdAt.getTime();
 }
 
-export async function retryReviewTask(taskId: string, credentials: Credentials, readyIds?: string[]): Promise<RetryResult> {
+export async function retryReviewTask(taskId: string, credentials: Credentials, readyIds?: string[], force?: boolean): Promise<RetryResult> {
   console.log(`[retry:review] Starting retry for DB=${taskId}`);
   const task = await prisma.reviewTask.findUnique({
     where: { id: taskId },
@@ -53,7 +53,7 @@ export async function retryReviewTask(taskId: string, credentials: Credentials, 
   })();
   const isReady = resolvedReadyIds.includes(task.dfsTaskId);
   const age = taskAgeMs(task.createdAt);
-  const canDirectFetch = age > DIRECT_FETCH_THRESHOLD_MS;
+  const canDirectFetch = force || age > DIRECT_FETCH_THRESHOLD_MS;
   const expired = age > EXPIRE_THRESHOLD_MS;
 
   if (!isReady && !canDirectFetch) { console.log(`[retry:review] Task ${task.dfsTaskId} NOT in ready list`); return { taskStatus: "pending" }; }
@@ -142,7 +142,7 @@ export async function retryReviewTask(taskId: string, credentials: Credentials, 
   return { taskStatus: "completed" };
 }
 
-export async function retrySearchTask(taskId: string, credentials: Credentials, readyIds?: string[]): Promise<RetryResult> {
+export async function retrySearchTask(taskId: string, credentials: Credentials, readyIds?: string[], force?: boolean): Promise<RetryResult> {
   console.log(`[retry:search] Starting retry for DB=${taskId}`);
   const task = await prisma.mapsSearchTask.findUnique({ where: { id: taskId } });
 
@@ -161,7 +161,7 @@ export async function retrySearchTask(taskId: string, credentials: Credentials, 
     readyItem = readyTasks.find((t) => t.id === task.dfsTaskId);
   }
   const searchAge = taskAgeMs(task.createdAt);
-  const searchCanDirect = searchAge > DIRECT_FETCH_THRESHOLD_MS;
+  const searchCanDirect = force || searchAge > DIRECT_FETCH_THRESHOLD_MS;
   const searchExpired = searchAge > EXPIRE_THRESHOLD_MS;
 
   if (!readyItem && !searchCanDirect) { console.log(`[retry:search] Task ${task.dfsTaskId} NOT in ready list`); return { taskStatus: "pending" }; }
@@ -237,7 +237,7 @@ export async function retrySearchTask(taskId: string, credentials: Credentials, 
   return { taskStatus: "completed" };
 }
 
-export async function retryInfoTask(taskId: string, credentials: Credentials, preReadyIds?: string[]): Promise<RetryResult> {
+export async function retryInfoTask(taskId: string, credentials: Credentials, preReadyIds?: string[], force?: boolean): Promise<RetryResult> {
   console.log(`[retry:info] Starting retry for DB=${taskId}`);
   const task = await prisma.businessInfoTask.findUnique({
     where: { id: taskId },
@@ -257,7 +257,7 @@ export async function retryInfoTask(taskId: string, credentials: Credentials, pr
   })();
   const infoReady = resolvedReadyIds.includes(task.dfsTaskId);
   const infoAge = taskAgeMs(task.createdAt);
-  const infoCanDirect = infoAge > DIRECT_FETCH_THRESHOLD_MS;
+  const infoCanDirect = force || infoAge > DIRECT_FETCH_THRESHOLD_MS;
   const infoExpired = infoAge > EXPIRE_THRESHOLD_MS;
 
   if (!infoReady && !infoCanDirect) { console.log(`[retry:info] Task ${task.dfsTaskId} NOT in ready list`); return { taskStatus: "pending" }; }
