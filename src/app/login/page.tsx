@@ -43,7 +43,7 @@ export default function LoginPage() {
       <div className="w-full max-w-4xl flex flex-col lg:flex-row gap-8 lg:gap-12 items-center lg:items-start">
         {/* Left column — app description */}
         <div className="w-full lg:w-1/2 lg:pt-4">
-          <h1 className="text-3xl font-bold text-gray-800 mb-3">DFS Maps App</h1>
+          <h1 className="text-3xl font-bold text-gray-800 mb-3">Search Ops Toolkit</h1>
           <p className="text-gray-600 mb-6">
             Narzędzie do wyszukiwania firm na Google Maps, pobierania opinii
             i eksportu danych — z pełną kontrolą kosztów API.

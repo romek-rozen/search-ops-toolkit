@@ -35,6 +35,9 @@ RUN --mount=type=cache,target=/root/.npm npm install prisma@7 dotenv@16 && npm c
 COPY docker-entrypoint.sh ./
 RUN chmod +x docker-entrypoint.sh
 
+# Give nextjs user write access to prisma engines (needed for migrate deploy)
+RUN chown -R nextjs:nodejs node_modules/@prisma
+
 USER nextjs
 EXPOSE 3000
 ENV HOSTNAME="0.0.0.0"

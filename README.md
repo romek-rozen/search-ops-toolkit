@@ -90,8 +90,17 @@ cp .env.example .env
 # Edit .env — for local dev, DATABASE_URL should point to localhost:
 #   DATABASE_URL="postgresql://postgres:postgres@localhost:5432/search_ops?schema=public"
 npx prisma migrate dev
-npm run dev                       # http://localhost:3000
+PORT=3848 npm run dev             # dev.sot.nimblio.work (via Caddy)
 ```
+
+### Domains (Caddy reverse proxy)
+
+| Domain | Target | Description |
+|--------|--------|-------------|
+| `sot.nimblio.work` | `search-ops-toolkit-app-1:3847` | Production (Docker container) |
+| `dev.sot.nimblio.work` | `172.21.0.1:3848` | Development (`PORT=3848 npm run dev`) |
+
+Caddy runs in Docker (`docker-caddy-1`) and handles SSL automatically.
 
 ## Environment Variables
 
@@ -107,7 +116,7 @@ npm run dev                       # http://localhost:3000
 
 | Command | Description |
 |---------|-------------|
-| `npm run dev` | Development server |
+| `PORT=3848 npm run dev` | Development server (dev.sot.nimblio.work) |
 | `npm run build` | Production build |
 | `npm run lint` | ESLint |
 | `npx prisma migrate dev` | Run migrations (dev) |

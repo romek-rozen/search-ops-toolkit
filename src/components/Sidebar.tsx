@@ -127,7 +127,7 @@ export default function Sidebar() {
       >
         <div className="px-5 py-4 border-b border-slate-100">
           <Link href="/" className="text-sm font-semibold text-slate-800 tracking-tight">
-            DFS Maps App
+            Search Ops Toolkit
           </Link>
         </div>
 

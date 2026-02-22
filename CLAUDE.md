@@ -11,9 +11,9 @@ This file provides guidance to Claude Code (claude.ai/code) when working with co
 
 ## Komendy
 - `docker-compose up -d db` — uruchomienie samego PostgreSQL (dev)
-- `docker-compose up --build` — pełna konteneryzacja (app + DB), port 3000
+- `docker-compose up --build` — pełna konteneryzacja (app + DB)
 - `npx prisma migrate dev` — migracje bazy
-- `npm run dev` — development server (localhost:3000)
+- `PORT=3848 npm run dev` — development server (dev.sot.nimblio.work przez Caddy)
 - `npm run build` — production build
 - `npm run db:studio` — Prisma Studio (GUI do bazy)
 - `npm run db:push` — push schematu bez tworzenia migracji
@@ -111,6 +111,11 @@ Stan frontendowy żyje w custom hookach i komponentach stron (useState/useEffect
 - Jedna czysta migracja `init` (squash z 15 inkrementalnych)
 - App container dołączony do zewnętrznej sieci `caddy-network` (reverse proxy Caddy)
 - Porty `APP_PORT` i `DB_PORT` dynamiczne po obu stronach (host↔container) — `PGPORT` i `PORT` ustawiane wewnątrz kontenerów
+
+### Domeny (Caddy reverse proxy)
+- **Produkcja**: `sot.nimblio.work` → `search-ops-toolkit-app-1:3847` (Docker container)
+- **Dev**: `dev.sot.nimblio.work` → `172.21.0.1:3848` (host, `PORT=3848 npm run dev`)
+- Caddy działa w Dockerze (`docker-caddy-1`), obsługuje SSL automatycznie
 
 ## Zmienne środowiskowe
 - `SESSION_SECRET` — klucz szyfrowania sesji iron-session (wymagany)
