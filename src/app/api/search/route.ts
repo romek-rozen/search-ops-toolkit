@@ -1,0 +1,168 @@
+import { NextRequest, NextResponse } from "next/server";
+import { prisma } from "@/lib/db";
+import {
+  searchMapsLive,
+  postMapsSearchTask,
+  DfsMapsSearchItem,
+} from "@/lib/dataforseo";
+import { getSessionCredentials } from "@/lib/session";
+import { searchPostSchema, parseBody } from "@/lib/validation";
+
+// Extract CID from DataForSEO feature_id (hex format 0x...:0x...)
+function extractCidFromFeatureId(featureId?: string | null): string | null {
+  if (!featureId) return null;
+  const match = featureId.match(/0x[0-9a-fA-F]+:(0x[0-9a-fA-F]+)/);
+  if (!match) return null;
+  try {
+    return BigInt(match[1]).toString();
+  } catch {
+    return null;
+  }
+}
+
+// POST /api/search — wyszukaj firmy na mapach Google
+export async function POST(req: NextRequest) {
+  try {
+    const credentials = await getSessionCredentials();
+    if (!credentials) {
+      return NextResponse.json({ error: "Unauthorized" }, { status: 401 });
+    }
+
+    const body = await req.json();
+    const parsed = parseBody(searchPostSchema, body);
+    if (!parsed.success) {
+      return NextResponse.json({ error: parsed.error }, { status: 400 });
+    }
+
+    const { keyword, locationCode, locationName, languageCode, depth, method, refresh } = parsed.data;
+
+    // Sprawdź cache (ten sam keyword + location + user)
+    if (!refresh) {
+      const cachedTask = await prisma.mapsSearchTask.findFirst({
+        where: { keyword, locationCode, languageCode, status: "completed", depth: { gte: depth }, dfsLogin: credentials.login },
+        orderBy: { createdAt: "desc" },
+        include: { results: { orderBy: { rankAbsolute: "asc" } } },
+      });
+
+      if (cachedTask) {
+        return NextResponse.json({
+          results: cachedTask.results,
+          total: cachedTask.resultsCount ?? cachedTask.results.length,
+          fromCache: true,
+          taskId: cachedTask.id,
+          taskStatus: "completed",
+        });
+      }
+    }
+
+    // Sprawdź czy jest pending task (dla tego usera)
+    const pendingTask = await prisma.mapsSearchTask.findFirst({
+      where: { keyword, locationCode, languageCode, status: "pending", dfsLogin: credentials.login },
+      orderBy: { createdAt: "desc" },
+    });
+
+    if (pendingTask) {
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        fromCache: false,
+        taskId: pendingTask.id,
+        taskStatus: "pending",
+      });
+    }
+
+    if (method === "live") {
+      // Live — natychmiastowe wyniki
+      const { items, cost } = await searchMapsLive(credentials, keyword, locationCode, languageCode, depth);
+
+      const task = await prisma.mapsSearchTask.create({
+        data: {
+          keyword, locationCode, locationName: locationName || "", languageCode,
+          depth, method: "live", status: "completed", cost, resultsCount: items.length, dfsLogin: credentials.login,
+        },
+      });
+
+      // Zapisz wyniki
+      const results = await saveSearchResults(task.id, items);
+
+      return NextResponse.json({
+        results,
+        total: results.length,
+        fromCache: false,
+        taskId: task.id,
+        taskStatus: "completed",
+      });
+    } else {
+      // Async (standard priority=1, priority priority=2)
+      const priority = method === "priority" ? 2 : 1;
+      const { dfsTaskId, cost } = await postMapsSearchTask(credentials, keyword, locationCode, languageCode, depth, priority as 1 | 2);
+
+      const task = await prisma.mapsSearchTask.create({
+        data: {
+          dfsTaskId, keyword, locationCode, locationName: locationName || "",
+          languageCode, depth, method, status: "pending", cost, dfsLogin: credentials.login,
+        },
+      });
+
+      return NextResponse.json({
+        results: [],
+        total: 0,
+        fromCache: false,
+        taskId: task.id,
+        taskStatus: "pending",
+      });
+    }
+  } catch (e) {
+    console.error("[search] Error:", e);
+    return NextResponse.json(
+      { error: e instanceof Error ? e.message : "Wystąpił błąd" },
+      { status: 500 }
+    );
+  }
+}
+
+async function saveSearchResults(taskId: string, items: DfsMapsSearchItem[]) {
+  const titlesWithCid = new Set(
+    items.filter((i) => i.cid || i.feature_id).map((i) => i.title?.toLowerCase())
+  );
+  const deduped = items.filter((item) => {
+    const hasCid = item.cid || item.feature_id;
+    if (hasCid) return true;
+    return !titlesWithCid.has(item.title?.toLowerCase());
+  });
+
+  const data = deduped.map((item, index) => ({
+    taskId,
+    rankAbsolute: item.rank_absolute ?? index + 1,
+    title: item.title || "Bez nazwy",
+    address: item.address,
+    city: item.address_info?.city ?? null,
+    country: item.address_info?.country_code ?? null,
+    phone: item.phone,
+    domain: item.domain,
+    url: item.url,
+    cid: item.cid || extractCidFromFeatureId(item.feature_id),
+    placeId: item.place_id,
+    rating: item.rating?.value,
+    votesCount: item.rating?.votes_count,
+    ratingDistribution: item.rating_distribution ? JSON.parse(JSON.stringify(item.rating_distribution)) : undefined,
+    category: item.category,
+    additionalCategories: item.additional_categories || [],
+    latitude: item.latitude,
+    longitude: item.longitude,
+    snippet: item.snippet,
+    mainImage: item.main_image,
+    workHours: item.work_hours ? JSON.parse(JSON.stringify(item.work_hours)) : undefined,
+    priceLevel: item.price_level,
+    isClaimed: item.is_claimed,
+    featureId: item.feature_id,
+    type: item.type,
+  }));
+
+  await prisma.mapsSearchResult.createMany({ data });
+
+  return prisma.mapsSearchResult.findMany({
+    where: { taskId },
+    orderBy: { rankAbsolute: "asc" },
+  });
+}

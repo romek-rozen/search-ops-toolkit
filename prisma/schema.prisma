@@ -1,0 +1,194 @@
+generator client {
+  provider = "prisma-client"
+  output   = "../src/generated/prisma"
+}
+
+datasource db {
+  provider = "postgresql"
+}
+
+model DfsLocation {
+  id           Int    @id // location_code from DataForSEO
+  name         String
+  countryCode  String
+  locationType String
+}
+
+model DfsLanguage {
+  code String @id // language_code
+  name String
+}
+
+model DfsSerpLocation {
+  id           Int    @id // location_code
+  name         String
+  countryCode  String
+  locationType String // Country, Region, City, etc.
+
+  @@index([countryCode])
+}
+
+model Business {
+  id           String       @id @default(cuid())
+  cid          String       @unique
+  name         String
+  address      String?
+  city         String?
+  country      String?
+  phone        String?
+  website      String?
+  category     String?
+  rating       Float?
+  totalReviews Int?
+  mapsUrl      String?
+  dfsLogin     String?
+  createdAt    DateTime     @default(now())
+  updatedAt    DateTime     @updatedAt
+  reviews          Review[]
+  tasks            ReviewTask[]
+  businessInfoTasks BusinessInfoTask[]
+  nameHistory      BusinessNameHistory[]
+  dataHistory      BusinessDataHistory[]
+  mapsSearchResults MapsSearchResult[]
+}
+
+model ReviewTask {
+  id             String   @id @default(cuid())
+  dfsTaskId      String   @unique
+  businessId     String
+  business       Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status         String   @default("pending") // pending, ready, completed, failed
+  depth          Int      @default(100)
+  cost           Float?
+  timeSec        String?
+  locationName   String?
+  languageName   String?
+  keyword        String?
+  device         String?
+  os             String?
+  dfsStatusCode  Int?
+  dfsResponse    Json?
+  error          String?
+  dfsLogin       String?
+  isShared       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  reviews        Review[] @relation("ReviewTaskReviews")
+}
+
+model BusinessInfoTask {
+  id            String   @id @default(cuid())
+  dfsTaskId     String   @unique
+  businessId    String
+  business      Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  status        String   @default("pending") // pending, ready, completed, failed
+  cost          Float?
+  timeSec       String?
+  locationName  String?
+  languageCode  String?
+  dfsStatusCode Int?
+  dfsResponse   Json?
+  error         String?
+  dfsLogin      String?
+  createdAt     DateTime @default(now())
+  updatedAt     DateTime @updatedAt
+}
+
+model BusinessNameHistory {
+  id         String   @id @default(cuid())
+  businessId String
+  business   Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name       String
+  source     String   // "live", "task_get", "manual"
+  recordedAt DateTime @default(now())
+}
+
+model BusinessDataHistory {
+  id           String   @id @default(cuid())
+  businessId   String
+  business     Business @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  name         String?
+  address      String?
+  phone        String?
+  website      String?
+  category     String?
+  rating       Float?
+  totalReviews Int?
+  source       String   // "live" | "task_get"
+  recordedAt   DateTime @default(now())
+
+  @@index([businessId, recordedAt])
+}
+
+model MapsSearchTask {
+  id             String   @id @default(cuid())
+  dfsTaskId      String?  @unique
+  keyword        String
+  locationCode   Int
+  locationName   String
+  languageCode   String
+  depth          Int      @default(100)
+  method         String   @default("live") // live, standard, priority
+  status         String   @default("pending") // pending/completed/failed
+  cost           Float?
+  timeSec        Float?
+  resultsCount   Int?
+  dfsResponse    Json?
+  dfsLogin       String?
+  isShared       Boolean  @default(false)
+  createdAt      DateTime @default(now())
+  updatedAt      DateTime @updatedAt
+  results        MapsSearchResult[]
+}
+
+model MapsSearchResult {
+  id                   String   @id @default(cuid())
+  taskId               String
+  task                 MapsSearchTask @relation(fields: [taskId], references: [id], onDelete: Cascade)
+  rankAbsolute         Int
+  title                String
+  address              String?
+  city                 String?
+  country              String?
+  phone                String?
+  domain               String?
+  url                  String?
+  cid                  String?
+  placeId              String?
+  rating               Float?
+  votesCount           Int?
+  ratingDistribution   Json?
+  category             String?
+  additionalCategories String[]
+  latitude             Float?
+  longitude            Float?
+  snippet              String?
+  mainImage            String?
+  workHours            Json?
+  priceLevel           String?
+  isClaimed            Boolean?
+  featureId            String?
+  type                 String?
+  createdAt            DateTime @default(now())
+
+  business             Business? @relation(fields: [businessCid], references: [cid])
+  businessCid          String?
+}
+
+model Review {
+  id               String    @id @default(cuid())
+  businessId       String
+  business         Business  @relation(fields: [businessId], references: [id], onDelete: Cascade)
+  authorName       String
+  authorAvatar     String?
+  rating           Int
+  text             String?
+  publishedAt      DateTime?
+  ownerResponse    String?
+  ownerRespondedAt DateTime?
+  dfsLogin         String?
+  createdAt        DateTime  @default(now())
+  tasks            ReviewTask[] @relation("ReviewTaskReviews")
+
+  @@unique([businessId, authorName, publishedAt])
+}
