@@ -7,6 +7,7 @@ Self-hosted tool for SEO/marketing agencies to fetch, store, and export Google M
 - **Google Maps SERP search** — find businesses by keyword + location (live, standard, priority modes)
 - **Reviews fetching** — fetch reviews by Google Maps URL with automatic CID extraction
 - **Batch operations** — fetch reviews for multiple businesses at once
+- **Real-time updates** — SSE notifications from DataForSEO postbacks, instant UI refresh (polling as fallback)
 - **PostgreSQL caching** — all API data cached locally, no duplicate costs
 - **Export** — CSV, Excel (.xlsx), webhook integration
 - **Multi-user** — each user sees only their own data, admin sees everything
@@ -111,6 +112,7 @@ Caddy runs in Docker (`docker-caddy-1`) and handles SSL automatically.
 | `DATABASE_URL` | Dev only | PostgreSQL connection string (auto-set in docker-compose) |
 | `ADMIN_EMAIL` | No | Admin user email — sees all users' data |
 | `NEXT_PUBLIC_ADMIN_EMAIL` | No | Same as above, exposed to client |
+| `CALLBACK_BASE_URL` | No | Base URL for DataForSEO postbacks (e.g. `https://sot.nimblio.work`). Enables instant results via SSE instead of polling. |
 
 ## Commands
 

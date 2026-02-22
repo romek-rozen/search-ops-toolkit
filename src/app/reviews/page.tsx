@@ -208,7 +208,7 @@ function ReviewsPage() {
           setBusiness({ id: task.businessId, cid: task.business.cid, name: task.business.name } as Business);
           setCid(task.business.cid);
         }
-        bizPolling.pollBusinessInfo(task.dfsTaskId);
+        bizPolling.pollBusinessInfo(task.dfsTaskId, task.id);
       })
       .catch(() => {});
   // eslint-disable-next-line react-hooks/exhaustive-deps
@@ -237,7 +237,7 @@ function ReviewsPage() {
           setCid(targetCid);
           setFromCache(true);
           if (bizData.asyncTaskId) {
-            bizPolling.pollBusinessInfo(bizData.asyncTaskId);
+            bizPolling.pollBusinessInfo(bizData.asyncTaskId, bizData.asyncDbTaskId);
           }
         }
 
@@ -293,7 +293,7 @@ function ReviewsPage() {
 
       setBusiness(bizData.business);
       setFromCache(bizData.fromCache);
-      if (bizData.asyncTaskId) bizPolling.pollBusinessInfo(bizData.asyncTaskId);
+      if (bizData.asyncTaskId) bizPolling.pollBusinessInfo(bizData.asyncTaskId, bizData.asyncDbTaskId);
 
       const revRes = await fetch("/api/reviews", {
         method: "POST",
@@ -348,7 +348,7 @@ function ReviewsPage() {
       else {
         setBusiness(bizData.business);
         setFromCache(false);
-        if (bizData.asyncTaskId) bizPolling.pollBusinessInfo(bizData.asyncTaskId);
+        if (bizData.asyncTaskId) bizPolling.pollBusinessInfo(bizData.asyncTaskId, bizData.asyncDbTaskId);
       }
     } catch (e) {
       setError(e instanceof Error ? e.message : "Wystąpił błąd");

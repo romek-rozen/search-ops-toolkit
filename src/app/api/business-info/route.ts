@@ -115,6 +115,7 @@ export async function POST(req: NextRequest) {
         business: placeholder,
         fromCache: false,
         asyncTaskId: existingTask.dfsTaskId,
+        asyncDbTaskId: existingTask.id,
       });
     }
 
@@ -125,7 +126,7 @@ export async function POST(req: NextRequest) {
       const taskResult = await postBusinessInfoTask(credentials, cid, loc, lang, priority);
       console.log(`[business-info] Async task created: ${taskResult.dfsTaskId}`);
 
-      await prisma.businessInfoTask.create({
+      const dbTask = await prisma.businessInfoTask.create({
         data: {
           dfsTaskId: taskResult.dfsTaskId,
           businessId: placeholder.id,
@@ -142,6 +143,7 @@ export async function POST(req: NextRequest) {
         business: placeholder,
         fromCache: false,
         asyncTaskId: taskResult.dfsTaskId,
+        asyncDbTaskId: dbTask.id,
       });
     } catch (taskError) {
       console.error("[business-info] Async task creation failed:", taskError);

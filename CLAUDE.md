@@ -45,6 +45,9 @@ Pobieranie recenzji używa 3-krokowego wzorca asynchronicznego DataForSEO:
 
 Klient (`/reviews/page.tsx`) zarządza pollingiem przez `setInterval`. Po odświeżeniu strony, pending taski są odzyskiwane z `/api/reviews/pending`.
 
+### Real-time powiadomienia (SSE)
+Postback handler po przetworzeniu wyników emituje event przez in-memory `EventEmitter` (`src/lib/task-events.ts`, singleton globalThis). SSE endpoint `GET /api/tasks/stream?taskIds=id1,id2` nasłuchuje eventów i pushuje je do klienta przez `text/event-stream`. Hook `useTaskStream` (`src/hooks/useTaskStream.ts`) opakowuje `EventSource` — używany przez hooki pollingu (`useSearchPolling`, `useReviewsPolling`, `useBusinessInfoPolling`) i stronę `/business/[cid]`. Polling (co 15s) zostaje jako fallback gdy SSE się rozłączy.
+
 ### Postback (callback) z DataForSEO
 Gdy `CALLBACK_BASE_URL` jest ustawiony, async taski (reviews, search, business-info) wysyłają `postback_url` w payload `task_post`. Po zakończeniu taska DFS wysyła POST z pełnymi wynikami (gzip) na `/api/callback/postback?tag={type}`. Endpoint dekompresuje, parsuje JSON i przetwarza wyniki — identycznie jak polling status routes. Polling zostaje jako fallback (DFS retryuje jeśli nasz serwer nie odpowie w 10s).
 
@@ -137,10 +140,11 @@ Strony (`src/app/**/page.tsx`) i API routes (`src/app/api/**/route.ts`) podąża
 
 ### Hooki (`src/hooks/`)
 - `useLocationData.ts` — fetch countries/languages/SERP locations, localStorage persistence
-- `useSearchPolling.ts` — polling async search tasks
+- `useSearchPolling.ts` — polling async search tasks + SSE
 - `useBatchReviews.ts` — batch fetch reviews z polling statusu
-- `useReviewsPolling.ts` — polling reviews tasks z timer
-- `useBusinessInfoPolling.ts` — polling business info tasks
+- `useReviewsPolling.ts` — polling reviews tasks z timer + SSE
+- `useBusinessInfoPolling.ts` — polling business info tasks + SSE
+- `useTaskStream.ts` — SSE subscription hook (EventSource wrapper)
 
 ### Lib (`src/lib/`)
 - `dfs/client.ts` — bazowy klient DataForSEO API (typy, auth, dfsPost/dfsGet)
@@ -156,10 +160,11 @@ Strony (`src/app/**/page.tsx`) i API routes (`src/app/api/**/route.ts`) podąża
 - `db.ts` — singleton Prisma (globalThis pattern dla hot-reload)
 - `pingback.ts` — helper `buildPostbackUrl()` + `DFS_CALLBACK_IPS` allowlist dla callbacków DataForSEO
 - `task-processors.ts` — shared logika przetwarzania wyników tasków (reviews, search, business-info) — reużywana przez status routes i postback handler
+- `task-events.ts` — EventEmitter singleton dla real-time powiadomień SSE (postback → frontend)
 
 ### Inne
 - `middleware.ts` — Next.js middleware wymuszające sesję (redirect/401)
-- `prisma/schema.prisma` — modele: Business, Review, ReviewTask, BusinessInfoTask, MapsSearchTask, MapsSearchResult, DfsLocation, DfsLanguage, DfsSerpLocation
+- `prisma/schema.prisma` — modele: Business, Review, ReviewTask, BusinessInfoTask, MapsSearchTask, MapsSearchResult, PostbackLog, DfsLocation, DfsLanguage, DfsSerpLocation
 
 ## Konwencje
 - Dodawać komentarze do kodu (po angielsku, spójnie z kontekstem)

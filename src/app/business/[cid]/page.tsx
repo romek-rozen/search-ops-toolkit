@@ -8,6 +8,7 @@ import ReviewTasksTable from "@/components/ReviewTasksTable";
 import InfoTasksTable from "@/components/InfoTasksTable";
 import CostsSummary from "@/components/CostsSummary";
 import { useLocationData } from "@/hooks/useLocationData";
+import { useTaskStream } from "@/hooks/useTaskStream";
 
 interface ReviewTask {
   id: string;
@@ -64,6 +65,7 @@ export default function BusinessDetailPage() {
   // Refresh business info
   const [refreshingBusiness, setRefreshingBusiness] = useState(false);
   const [bizPollingTaskId, setBizPollingTaskId] = useState<string | null>(null);
+  const [bizDbTaskId, setBizDbTaskId] = useState<string | null>(null);
 
   // Business info method
   const [bizMethod, setBizMethod] = useState<"standard" | "priority" | "live">("standard");
@@ -110,7 +112,22 @@ export default function BusinessDetailPage() {
     return () => document.removeEventListener("mousedown", handler);
   }, []);
 
-  // Polling for review task
+  // SSE: instant notification when postback completes (review or biz-info tasks)
+  const sseTaskIds = [pollingTaskId, bizDbTaskId].filter(Boolean) as string[];
+  useTaskStream(sseTaskIds, useCallback((event) => {
+    if (event.taskId === pollingTaskId) {
+      setPollingTaskId(null);
+      setFetchingReviews(false);
+      fetchData();
+    } else if (event.taskId === bizDbTaskId) {
+      setBizPollingTaskId(null);
+      setBizDbTaskId(null);
+      setRefreshingBusiness(false);
+      fetchData();
+    }
+  }, [pollingTaskId, bizDbTaskId, fetchData]));
+
+  // Polling for review task (fallback)
   useEffect(() => {
     if (!pollingTaskId) return;
 
@@ -136,7 +153,7 @@ export default function BusinessDetailPage() {
     return () => clearInterval(interval);
   }, [pollingTaskId, fetchData]);
 
-  // Polling for business info task
+  // Polling for business info task (fallback)
   useEffect(() => {
     if (!bizPollingTaskId) return;
 
@@ -151,6 +168,7 @@ export default function BusinessDetailPage() {
         if (result.taskStatus === "completed" || result.taskStatus === "failed") {
           clearInterval(interval);
           setBizPollingTaskId(null);
+          setBizDbTaskId(null);
           setRefreshingBusiness(false);
           fetchData();
         }
@@ -173,6 +191,7 @@ export default function BusinessDetailPage() {
       const result = await res.json();
       if (result.asyncTaskId) {
         setBizPollingTaskId(result.asyncTaskId);
+        if (result.asyncDbTaskId) setBizDbTaskId(result.asyncDbTaskId);
       } else {
         setRefreshingBusiness(false);
       }

@@ -6,6 +6,7 @@ import { processReviewResults, processSearchResults, processBusinessInfoResults 
 import { DfsReview } from "@/lib/dfs/reviews";
 import { DfsMapsSearchItem } from "@/lib/dfs/maps-search";
 import { DfsBusinessInfo } from "@/lib/dfs/business-info";
+import { taskEvents } from "@/lib/task-events";
 
 // In-memory rate limiter: IP → { count, resetAt }
 const rateLimitMap = new Map<string, { count: number; resetAt: number }>();
@@ -86,6 +87,18 @@ export async function POST(req: NextRequest) {
     const statusCode = task.status_code as number;
     const cost = task.cost ?? 0;
 
+    // Store raw postback payload for debugging
+    await prisma.postbackLog.create({
+      data: {
+        tag: tag!,
+        dfsTaskId,
+        statusCode,
+        cost,
+        ip,
+        payload: JSON.parse(JSON.stringify(data)),
+      },
+    });
+
     console.log(`[postback] Received tag=${tag} dfsTaskId=${dfsTaskId} status=${statusCode}`);
 
     if (statusCode !== 20000) {
@@ -137,6 +150,7 @@ async function handleReviewsPostback(dfsTaskId: string, task: Record<string, unk
       data: { status: "completed", cost: (dbTask.cost ?? 0) + cost },
     });
     console.log(`[postback/reviews] Task ${dfsTaskId} completed with 0 reviews`);
+    taskEvents.emit("task:complete", { taskId: dbTask.id, dfsTaskId, tag: "reviews", status: "completed" });
     return;
   }
 
@@ -152,6 +166,7 @@ async function handleReviewsPostback(dfsTaskId: string, task: Record<string, unk
   );
 
   console.log(`[postback/reviews] Task ${dfsTaskId} completed via postback`);
+  taskEvents.emit("task:complete", { taskId: dbTask.id, dfsTaskId, tag: "reviews", status: "completed" });
 }
 
 async function handleSearchPostback(dfsTaskId: string, task: Record<string, unknown>, cost: number) {
@@ -187,6 +202,7 @@ async function handleSearchPostback(dfsTaskId: string, task: Record<string, unkn
   });
 
   console.log(`[postback/search] Task ${dfsTaskId} completed via postback (${savedResults.length} results)`);
+  taskEvents.emit("task:complete", { taskId: dbTask.id, dfsTaskId, tag: "search", status: "completed" });
 }
 
 async function handleBusinessInfoPostback(dfsTaskId: string, task: Record<string, unknown>, cost: number) {
@@ -207,10 +223,11 @@ async function handleBusinessInfoPostback(dfsTaskId: string, task: Record<string
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw = (task as any).result?.[0];
-  // task_get format: data can be directly in result[0] or in result[0].items[0]
-  const info: DfsBusinessInfo = raw?.title ? raw : raw?.items?.[0] ?? raw;
+  console.log(`[postback/business-info] raw keys=${Object.keys(raw || {}).join(",")}, raw.address_info=${JSON.stringify(raw?.address_info)?.slice(0,200)}, items[0].address_info=${JSON.stringify(raw?.items?.[0]?.address_info)?.slice(0,200)}`);
+  // Always prefer items[0] when available — address_info lives there in async responses
+  const info: DfsBusinessInfo = raw?.items?.[0] ?? raw;
 
-  console.log(`[postback/business-info] Processing business info for task ${dfsTaskId}, title="${info?.title}"`);
+  console.log(`[postback/business-info] Processing business info for task ${dfsTaskId}, title="${info?.title}", city="${info?.address_info?.city}"`);
 
   await processBusinessInfoResults(
     dfsTaskId,
@@ -222,26 +239,39 @@ async function handleBusinessInfoPostback(dfsTaskId: string, task: Record<string
   );
 
   console.log(`[postback/business-info] Task ${dfsTaskId} completed via postback`);
+  taskEvents.emit("task:complete", { taskId: dbTask.id, dfsTaskId, tag: "business-info", status: "completed" });
 }
 
 // Mark a task as failed when DFS returns error status
 async function markTaskFailed(tag: string, dfsTaskId: string, error: string) {
   try {
+    let dbTaskId: string | undefined;
+
     if (tag === "reviews") {
+      const dbTask = await prisma.reviewTask.findFirst({ where: { dfsTaskId, status: { not: "completed" } } });
+      dbTaskId = dbTask?.id;
       await prisma.reviewTask.updateMany({
         where: { dfsTaskId, status: { not: "completed" } },
         data: { status: "failed", error },
       });
     } else if (tag === "search") {
+      const dbTask = await prisma.mapsSearchTask.findFirst({ where: { dfsTaskId, status: { not: "completed" } } });
+      dbTaskId = dbTask?.id;
       await prisma.mapsSearchTask.updateMany({
         where: { dfsTaskId, status: { not: "completed" } },
         data: { status: "failed" },
       });
     } else if (tag === "business-info") {
+      const dbTask = await prisma.businessInfoTask.findFirst({ where: { dfsTaskId, status: { not: "completed" } } });
+      dbTaskId = dbTask?.id;
       await prisma.businessInfoTask.updateMany({
         where: { dfsTaskId, status: { not: "completed" } },
         data: { status: "failed", error },
       });
+    }
+
+    if (dbTaskId) {
+      taskEvents.emit("task:complete", { taskId: dbTaskId, dfsTaskId, tag, status: "failed", error });
     }
   } catch (e) {
     console.error(`[postback] Failed to mark task ${dfsTaskId} as failed:`, e);

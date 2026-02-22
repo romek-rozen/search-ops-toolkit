@@ -49,8 +49,8 @@ export async function getBusinessInfo(
 
   // eslint-disable-next-line @typescript-eslint/no-explicit-any
   const raw = task.result[0] as any;
-  // Live response may have data nested in items array
-  const info: DfsBusinessInfo = raw.title ? raw : raw.items?.[0] ?? raw;
+  // Always prefer items[0] when available — address_info lives there
+  const info: DfsBusinessInfo = raw.items?.[0] ?? raw;
   console.log(`[dfs:biz-info-live] Resolved title="${info.title}" category="${info.category}"`);
   return info;
 }
@@ -122,10 +122,8 @@ export async function getBusinessInfoTaskResult(
 
   const raw = task.result[0];
 
-  // task_get może zwrócić dane bezpośrednio lub w items array
-  const info: DfsBusinessInfo = raw.title
-    ? raw
-    : raw.items?.[0] ?? raw;
+  // Always prefer items[0] when available — address_info lives there
+  const info: DfsBusinessInfo = raw.items?.[0] ?? raw;
 
   return {
     info,

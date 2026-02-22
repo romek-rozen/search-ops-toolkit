@@ -175,6 +175,20 @@ model MapsSearchResult {
   businessCid          String?
 }
 
+model PostbackLog {
+  id         String   @id @default(cuid())
+  tag        String   // "reviews" | "search" | "business-info"
+  dfsTaskId  String
+  statusCode Int
+  cost       Float?
+  ip         String?
+  payload    Json     // full raw DFS response body
+  createdAt  DateTime @default(now())
+
+  @@index([dfsTaskId])
+  @@index([tag, createdAt])
+}
+
 model Review {
   id               String    @id @default(cuid())
   businessId       String
