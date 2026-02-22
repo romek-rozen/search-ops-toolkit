@@ -1,4 +1,5 @@
 import { DataForSeoCredentials, DfsTaskReadyItem, dfsPost, dfsGet } from "./client";
+import { buildPostbackUrl } from "@/lib/pingback";
 
 export interface DfsReview {
   review_text?: string;
@@ -47,7 +48,7 @@ export async function postReviewsTask(
   const response = await dfsPost<unknown>(
     credentials,
     "/business_data/google/reviews/task_post",
-    [{ cid, depth, sort_by: sortBy, language_name: languageName, location_name: locationName }]
+    [{ cid, depth, sort_by: sortBy, language_name: languageName, location_name: locationName, ...(buildPostbackUrl("reviews") ? { postback_url: buildPostbackUrl("reviews") } : {}) }]
   );
 
   const task = response.tasks?.[0];

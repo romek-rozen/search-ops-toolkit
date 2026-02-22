@@ -45,6 +45,11 @@ Pobieranie recenzji używa 3-krokowego wzorca asynchronicznego DataForSEO:
 
 Klient (`/reviews/page.tsx`) zarządza pollingiem przez `setInterval`. Po odświeżeniu strony, pending taski są odzyskiwane z `/api/reviews/pending`.
 
+### Postback (callback) z DataForSEO
+Gdy `CALLBACK_BASE_URL` jest ustawiony, async taski (reviews, search, business-info) wysyłają `postback_url` w payload `task_post`. Po zakończeniu taska DFS wysyła POST z pełnymi wynikami (gzip) na `/api/callback/postback?tag={type}`. Endpoint dekompresuje, parsuje JSON i przetwarza wyniki — identycznie jak polling status routes. Polling zostaje jako fallback (DFS retryuje jeśli nasz serwer nie odpowie w 10s).
+
+Logika przetwarzania wyników jest wyekstrahowana do `src/lib/task-processors.ts` (shared między status routes a postback handler). Helper URL + IP allowlist w `src/lib/pingback.ts`. Endpoint postback waliduje IP nadawcy (tylko serwery DFS) i stosuje rate limit 100 req/min per IP.
+
 ### Wyszukiwarka firm (Google Maps SERP)
 Trzy metody pobierania wyników:
 - **Live** (`/v3/serp/google/maps/live/advanced`): natychmiastowe, $0.002/strona SERP
@@ -124,6 +129,7 @@ Stan frontendowy żyje w custom hookach i komponentach stron (useState/useEffect
 - `ADMIN_EMAIL` — email admina, widzi wszystkie dane użytkowników (opcjonalny)
 - `APP_PORT` — port hosta dla aplikacji (default: 3000, docker-compose)
 - `DB_PORT` — port hosta dla PostgreSQL (default: 5432, docker-compose, bind na 127.0.0.1)
+- `CALLBACK_BASE_URL` — bazowy URL dla postbacków DataForSEO, np. `https://sot.nimblio.work` (opcjonalny, bez niego app działa z samym pollingiem)
 
 ## Struktura kluczowych plików
 
@@ -148,6 +154,8 @@ Strony (`src/app/**/page.tsx`) i API routes (`src/app/api/**/route.ts`) podąża
 - `cid-extractor.ts` — ekstrakcja CID z URL Google Maps (ludocid, hex z data=, ftid)
 - `export.ts` — generatory CSV (z BOM UTF-8) i XLSX
 - `db.ts` — singleton Prisma (globalThis pattern dla hot-reload)
+- `pingback.ts` — helper `buildPostbackUrl()` + `DFS_CALLBACK_IPS` allowlist dla callbacków DataForSEO
+- `task-processors.ts` — shared logika przetwarzania wyników tasków (reviews, search, business-info) — reużywana przez status routes i postback handler
 
 ### Inne
 - `middleware.ts` — Next.js middleware wymuszające sesję (redirect/401)

@@ -1,20 +1,9 @@
 import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
-import { checkMapsSearchTasksReady, getMapsSearchTaskResult, DfsMapsSearchItem } from "@/lib/dataforseo";
+import { checkMapsSearchTasksReady, getMapsSearchTaskResult } from "@/lib/dataforseo";
 import { getSessionCredentials } from "@/lib/session";
 import { searchStatusSchema, parseBody } from "@/lib/validation";
-
-// Extract CID from DataForSEO feature_id (hex format 0x...:0x...)
-function extractCidFromFeatureId(featureId?: string | null): string | null {
-  if (!featureId) return null;
-  const match = featureId.match(/0x[0-9a-fA-F]+:(0x[0-9a-fA-F]+)/);
-  if (!match) return null;
-  try {
-    return BigInt(match[1]).toString();
-  } catch {
-    return null;
-  }
-}
+import { processSearchResults } from "@/lib/task-processors";
 
 // POST /api/search/status — sprawdź status async taska wyszukiwania
 export async function POST(req: NextRequest) {
@@ -82,8 +71,8 @@ export async function POST(req: NextRequest) {
       return NextResponse.json({ taskStatus: "pending" });
     }
 
-    // Zapisz wyniki
-    const savedResults = await saveSearchResults(task.id, result.items);
+    // Save results using shared function
+    const savedResults = await processSearchResults(task.id, result.items);
 
     await prisma.mapsSearchTask.update({
       where: { id: taskId },
@@ -106,49 +95,4 @@ export async function POST(req: NextRequest) {
       { status: 500 }
     );
   }
-}
-
-async function saveSearchResults(taskId: string, items: DfsMapsSearchItem[]) {
-  const titlesWithCid = new Set(
-    items.filter((i) => i.cid || i.feature_id).map((i) => i.title?.toLowerCase())
-  );
-  const deduped = items.filter((item) => {
-    if (item.cid || item.feature_id) return true;
-    return !titlesWithCid.has(item.title?.toLowerCase());
-  });
-
-  const data = deduped.map((item, index) => ({
-    taskId,
-    rankAbsolute: item.rank_absolute ?? index + 1,
-    title: item.title || "Bez nazwy",
-    address: item.address,
-    city: item.address_info?.city ?? null,
-    country: item.address_info?.country_code ?? null,
-    phone: item.phone,
-    domain: item.domain,
-    url: item.url,
-    cid: item.cid || extractCidFromFeatureId(item.feature_id),
-    placeId: item.place_id,
-    rating: item.rating?.value,
-    votesCount: item.rating?.votes_count,
-    ratingDistribution: item.rating_distribution ? JSON.parse(JSON.stringify(item.rating_distribution)) : undefined,
-    category: item.category,
-    additionalCategories: item.additional_categories || [],
-    latitude: item.latitude,
-    longitude: item.longitude,
-    snippet: item.snippet,
-    mainImage: item.main_image,
-    workHours: item.work_hours ? JSON.parse(JSON.stringify(item.work_hours)) : undefined,
-    priceLevel: item.price_level,
-    isClaimed: item.is_claimed,
-    featureId: item.feature_id,
-    type: item.type,
-  }));
-
-  await prisma.mapsSearchResult.createMany({ data });
-
-  return prisma.mapsSearchResult.findMany({
-    where: { taskId },
-    orderBy: { rankAbsolute: "asc" },
-  });
 }

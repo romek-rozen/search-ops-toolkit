@@ -3,6 +3,7 @@ import { prisma } from "@/lib/db";
 import { checkTasksReady, getTaskResult } from "@/lib/dataforseo";
 import { getSessionCredentials } from "@/lib/session";
 import { reviewsStatusSchema, parseBody } from "@/lib/validation";
+import { processReviewResults } from "@/lib/task-processors";
 
 // POST /api/reviews/status — sprawdź status taska i pobierz wyniki jeśli gotowe
 export async function POST(req: NextRequest) {
@@ -93,62 +94,15 @@ export async function POST(req: NextRequest) {
     const result = taskGetResult.reviews;
     console.log(`[reviews/status] Pobrano ${result.items.length} opinii (total: ${result.reviews_count}), koszt: $${taskGetResult.cost}`);
 
-    // Zapisz opinie do DB i zbierz ich ID
-    const upsertedReviewIds: string[] = [];
-    for (const r of result.items) {
-      const publishedAt = r.timestamp ? new Date(r.timestamp) : null;
-
-      const review = await prisma.review.upsert({
-        where: {
-          businessId_authorName_publishedAt: {
-            businessId: task.businessId,
-            authorName: r.profile_name || "Anonim",
-            publishedAt: publishedAt || new Date(0),
-          },
-        },
-        create: {
-          businessId: task.businessId,
-          authorName: r.profile_name || "Anonim",
-          authorAvatar: r.profile_image_url,
-          rating: r.rating?.value ?? 0,
-          text: r.review_text || r.original_review_text || null,
-          publishedAt,
-          ownerResponse: r.owner_answer || null,
-          ownerRespondedAt: r.owner_timestamp
-            ? new Date(r.owner_timestamp)
-            : null,
-          dfsLogin: credentials.login,
-        },
-        update: {
-          rating: r.rating?.value ?? 0,
-          text: r.review_text || r.original_review_text || null,
-          ownerResponse: r.owner_answer || null,
-          ownerRespondedAt: r.owner_timestamp
-            ? new Date(r.owner_timestamp)
-            : null,
-        },
-        select: { id: true },
-      });
-      upsertedReviewIds.push(review.id);
-    }
-
-    // Połącz recenzje z taskiem
-    if (upsertedReviewIds.length > 0) {
-      await prisma.reviewTask.update({
-        where: { id: taskId },
-        data: {
-          reviews: {
-            connect: upsertedReviewIds.map((id) => ({ id })),
-          },
-        },
-      });
-    }
-
-    // Oznacz task jako completed i zapisz koszt z task_get
-    await prisma.reviewTask.update({
-      where: { id: taskId },
-      data: { status: "completed", cost: (task.cost ?? 0) + taskGetResult.cost },
-    });
+    // Process reviews using shared function
+    await processReviewResults(
+      taskId,
+      task.businessId,
+      result.items,
+      credentials.login,
+      taskGetResult.cost,
+      task.cost ?? 0
+    );
 
     // Zwróć dane z DB
     const reviews = await prisma.review.findMany({

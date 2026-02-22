@@ -13,7 +13,7 @@ const SESSION_OPTIONS = {
 };
 
 // Paths that don't require authentication
-const PUBLIC_PATHS = ["/login", "/api/auth/"];
+const PUBLIC_PATHS = ["/login", "/api/auth/", "/api/callback/"];
 const PUBLIC_EXACT = ["/"];
 const STATIC_PREFIXES = ["/_next/", "/favicon.ico"];
 

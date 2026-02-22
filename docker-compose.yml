@@ -31,6 +31,7 @@ services:
       SESSION_SECRET: ${SESSION_SECRET:?Set SESSION_SECRET in .env}
       ADMIN_EMAIL: ${ADMIN_EMAIL:-}
       NEXT_PUBLIC_ADMIN_EMAIL: ${NEXT_PUBLIC_ADMIN_EMAIL:-}
+      CALLBACK_BASE_URL: ${CALLBACK_BASE_URL:-}
     depends_on:
       db:
         condition: service_healthy

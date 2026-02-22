@@ -1,4 +1,5 @@
 import { DataForSeoCredentials, DfsTaskReadyItem, dfsPost, dfsGet } from "./client";
+import { buildPostbackUrl } from "@/lib/pingback";
 
 export interface DfsMapsSearchItem {
   type: string;
@@ -84,7 +85,7 @@ export async function postMapsSearchTask(
   const response = await dfsPost<unknown>(
     credentials,
     "/serp/google/maps/task_post",
-    [{ keyword, location_code: locationCode, language_code: languageCode, depth, device: "desktop", os: "windows", priority }]
+    [{ keyword, location_code: locationCode, language_code: languageCode, depth, device: "desktop", os: "windows", priority, ...(buildPostbackUrl("search") ? { postback_url: buildPostbackUrl("search"), postback_data: "advanced" } : {}) }]
   );
 
   const task = response.tasks?.[0];

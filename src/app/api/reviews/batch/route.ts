@@ -2,6 +2,7 @@ import { NextRequest, NextResponse } from "next/server";
 import { prisma } from "@/lib/db";
 import { getSessionCredentials } from "@/lib/session";
 import { reviewsBatchSchema, parseBody } from "@/lib/validation";
+import { buildPostbackUrl } from "@/lib/pingback";
 
 const DFS_BASE = "https://api.dataforseo.com/v3";
 
@@ -39,12 +40,14 @@ export async function POST(req: NextRequest) {
     }
 
     // Przygotuj payloady dla DataForSEO — jeden POST z wieloma taskami
+    const postbackUrl = buildPostbackUrl("reviews");
     const dfsPayload = items.map((item) => ({
       cid: item.cid,
       depth,
       sort_by: sortBy,
       language_name: languageName,
       location_name: locationName,
+      ...(postbackUrl ? { postback_url: postbackUrl } : {}),
     }));
 
     const auth = Buffer.from(`${credentials.login}:${credentials.password}`).toString("base64");

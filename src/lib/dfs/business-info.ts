@@ -1,4 +1,5 @@
 import { DataForSeoCredentials, DfsTaskReadyItem, dfsPost, dfsGet } from "./client";
+import { buildPostbackUrl } from "@/lib/pingback";
 
 export interface DfsBusinessInfo {
   title: string;
@@ -65,7 +66,7 @@ export async function postBusinessInfoTask(
   const response = await dfsPost<unknown>(
     credentials,
     "/business_data/google/my_business_info/task_post",
-    [{ keyword: `cid:${cid}`, location_name: locationName, language_code: languageCode, priority }]
+    [{ keyword: `cid:${cid}`, location_name: locationName, language_code: languageCode, priority, ...(buildPostbackUrl("business-info") ? { postback_url: buildPostbackUrl("business-info") } : {}) }]
   );
 
   const task = response.tasks?.[0];

@@ -6,6 +6,7 @@ import {
 } from "@/lib/dataforseo";
 import { getSessionCredentials } from "@/lib/session";
 import { businessInfoTaskStatusSchema, parseBody } from "@/lib/validation";
+import { processBusinessInfoResults } from "@/lib/task-processors";
 
 export async function POST(req: NextRequest) {
   try {
@@ -77,75 +78,22 @@ export async function POST(req: NextRequest) {
 
     console.log("[business-info/task/status] Parsed info:", JSON.stringify(result.info)?.slice(0, 300));
 
-    if (!result.info?.title) {
-      await prisma.businessInfoTask.update({
-        where: { dfsTaskId },
-        data: {
-          status: "failed",
-          error: `Brak title w odpowiedzi. Keys: ${Object.keys(result.info || {}).join(", ")}`,
-          cost: result.cost,
-          dfsResponse: JSON.parse(JSON.stringify(result.rawResult)),
-        },
-      });
+    const { business, failed } = await processBusinessInfoResults(
+      dfsTaskId,
+      result.info,
+      result.cost,
+      result.rawResult,
+      task.cost ?? 0,
+      "task_get"
+    );
+
+    if (failed) {
       return NextResponse.json({
         taskStatus: "failed",
         error: "Brak danych o firmie",
         business: task.business,
       });
     }
-
-    const info = result.info;
-    const oldName = task.business.name;
-    const newName = info.title;
-
-    // Upsert business z danymi
-    const business = await prisma.business.update({
-      where: { id: task.businessId },
-      data: {
-        name: newName,
-        address: info.address,
-        city: info.address_info?.city ?? null,
-        country: info.address_info?.country_code ?? null,
-        phone: info.phone,
-        website: info.domain || info.url,
-        category: info.category,
-        rating: info.rating?.value,
-        totalReviews: info.rating?.votes_count,
-      },
-    });
-
-    if (oldName !== newName) {
-      await prisma.businessNameHistory.create({
-        data: {
-          businessId: business.id,
-          name: newName,
-          source: "task_get",
-        },
-      });
-    }
-
-    await prisma.businessDataHistory.create({
-      data: {
-        businessId: business.id,
-        name: newName,
-        address: info.address,
-        phone: info.phone,
-        website: info.domain || info.url,
-        category: info.category,
-        rating: info.rating?.value,
-        totalReviews: info.rating?.votes_count,
-        source: "task_get",
-      },
-    });
-
-    await prisma.businessInfoTask.update({
-      where: { dfsTaskId },
-      data: {
-        status: "completed",
-        cost: (task.cost ?? 0) + result.cost,
-        dfsResponse: JSON.parse(JSON.stringify(result.rawResult)),
-      },
-    });
 
     return NextResponse.json({
       taskStatus: "completed",
