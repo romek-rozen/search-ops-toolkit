@@ -103,8 +103,9 @@ Stan frontendowy żyje w custom hookach i komponentach stron (useState/useEffect
 
 ## Deploy
 - Docker Compose: `docker-compose up -d --build` (app + PostgreSQL)
-- Hasła sparametryzowane: `POSTGRES_PASSWORD` z `.env` (default `postgres` dla dev)
+- `POSTGRES_PASSWORD` i `SESSION_SECRET` wymagane w `.env` (brak defaults — docker-compose failuje bez nich)
 - `DATABASE_URL` w docker-compose automatycznie używa `${POSTGRES_PASSWORD}`
+- `setup.sh` generuje `.env` z bezpiecznymi losowymi hasłami
 - `.env.example` — wzór zmiennych do skopiowania jako `.env`
 - Migracje odpalają się automatycznie przy starcie kontenera (`docker-entrypoint.sh`)
 - Jedna czysta migracja `init` (squash z 15 inkrementalnych)
